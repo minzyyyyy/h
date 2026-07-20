@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>귀여운 곰돌이와 함께하는 동음이의어 게임!</title>
+    <!-- Canvas Confetti 라이브러리 (글자를 가리지 않는 가장자리 폭죽 효과용) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        /* 부드럽고 가독성 좋은 폰트 가져오기 */
+        @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Gothic:wght@400;700;800&display=swap');
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Nanum Gothic', sans-serif;
+            background-color: #fffbeb; /* 따뜻한 아이보리 톤 배경 */
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            background-color: white;
+            border-radius: 24px;
+            box-shadow: 0 12px 30px rgba(180, 140, 100, 0.15);
+            border: 4px solid #fbd38d; /* 부드러운 꿀벌 노란색 테두리 */
+            padding: 30px;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* 큰 제목 스타일 */
+        h1 {
+            font-family: 'Gaegu', sans-serif;
+            color: #b7791f;
+            font-size: 36px;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        /* 상단 상태 바 (진행도와 하트) */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #744210;
+        }
+
+        .hearts {
+            color: #e53e3e;
+            font-size: 24px;
+            letter-spacing: 2px;
+        }
+
+        /* 🐻 곰돌이가 걸어가는 초록색 숲속 길 게이지 */
+        .gauge-container {
+            position: relative;
+            background-color: #ecfccb; /* 연한 초록빛 풀밭 배경 */
+            height: 44px;
+            border-radius: 22px;
+            margin-bottom: 25px;
+            border: 3px solid #a3e635; /* 연두색 테두리 */
+            overflow: visible; /* 곰돌이 캐릭터가 바깥으로 살짝 튀어나오도록 함 */
+        }
+
+        /* 중앙을 지나는 예쁜 흙길 라인 */
+        .gauge-track {
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            right: 45px;
+            height: 6px;
+            background-color: #fef08a; /* 노란색 오솔길 */
+            border-radius: 3px;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+
+        /* 맞춘 점수만큼 채워지는 주황빛 게이지 */
+        .gauge-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background-color: #f6ad55;
+            border-radius: 19px;
+            width: 0%;
+            transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 2;
+        }
+
+        /* 달리는 아기 곰돌이 캐릭터 */
+        .bear-runner {
+            position: absolute;
+            top: -16px;
+            left: 0%; /* 맞춘 개수에 따라 0% ~ 100% 위치로 부드럽게 이동 */
+            width: 55px;
+            height: 55px;
+            transform: translateX(-50%);
+            transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 5;
+        }
+
+        /* 정답 시 곰돌이가 기뻐하며 제자리 점프하는 모션 */
+        .bear-runner.bounce {
+            animation: bearBounce 0.6s ease;
+        }
+
+        @keyframes bearBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+            50% { transform: translateX(-50%) translateY(-22px) scale(1.15); }
+        }
+
+        /* 도착 지점에 있는 맛있는 꿀단지 🍯 */
+        .honey-pot {
+            position: absolute;
+            right: -10px;
+            top: -12px;
+            font-size: 34px;
+            z-index: 4;
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.15); }
+        }
+
+        /* 문제 박스 */
+        .question-box {
+            background-color: #fffaf0;
+            border: 3px solid #fbd38d;
+            border-radius: 16px;
+            padding: 22px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            word-break: keep-all;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        /* 보기 버튼 리스트 */
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .btn-option {
+            background-color: #fff;
+            border: 2.5px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            padding-left: 20px;
+            font-weight: bold;
+            color: #4a5568;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .btn-option:hover {
+            background-color: #fefaf0;
+            border-color: #fbd38d;
+            transform: translateY(-1.5px);
+        }
+
+        .btn-next {
+            background-color: #dd6b20; /* 가독성 높은 따뜻한 브라운-오렌지 */
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            margin: 20px auto 0 auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
+        }
+
+        .btn-next:hover {
+            background-color: #c05621;
+        }
+
+        /* 실시간 정오답 해설 피드백 */
+        .feedback-box {
+            display: none;
+            margin-top: 20px;
+            padding: 18px;
+            border-radius: 14px;
+            text-align: left;
+            font-size: 16px;
+            line-height: 1.6;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+
+        .feedback-box.correct {
+            background-color: #f0fff4;
+            border: 2px solid #c6f6d5;
+            color: #22543d;
+        }
+
+        .feedback-box.wrong {
+            background-color: #fff5f5;
+            border: 2px solid #fed7d7;
+            color: #742a2a;
+        }
+
+        .feedback-box .title {
+            font-weight: 800;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        /* 최종 결과 화면 */
+        .result-screen {
+            display: none;
+        }
+
+        .result-title {
+            font-family: 'Gaegu', sans-serif;
+            font-size: 38px;
+            color: #b7791f;
+            margin-bottom: 10px;
+        }
+
+        .score-display {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #4a5568;
+        }
+
+        /* 최종 오답노트 */
+        .review-note {
+            text-align: left;
+            background-color: #fffaf0;
+            border: 2px solid #fbd38d;
+            border-radius: 16px;
+            padding: 20px;
+            max-height: 280px;
+            overflow-y: auto;
+            margin-bottom: 25px;
+        }
+
+        .review-item {
+            border-bottom: 1px dashed #fbd38d;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+
+        .review-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .review-q {
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 6px;
+            font-size: 16px;
+        }
+
+        .review-a {
+            color: #c53030;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 15px;
+        }
+
+        .review-e {
+            color: #4a5568;
+            font-size: 14px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #fed7d7;
+            line-height: 1.5;
+        }
+
+        .btn-restart {
+            background-color: #38a169;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
+        }
+
+        .btn-restart:hover {
+            background-color: #2f855a;
+        }
+
+        /* 정답/오답 선택 시 강조 스타일 클래스 */
+        .option-correct {
+            background-color: #c6f6d5 !important;
+            border-color: #48bb78 !important;
+            color: #22543d;
+        }
+
+        .option-wrong {
+            background-color: #fed7d7 !important;
+            border-color: #f56565 !important;
+            color: #742a2a;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- 1. 게임 실행 화면 -->
+        <div id="game-screen">
+            <div class="status-bar">
+                <span id="question-progress">문제: 1 / 10</span>
+                <span id="heart-display" class="hearts">❤️❤️❤️❤️❤️</span>
+            </div>
+
+            <!-- 🐻 귀여운 곰돌이 오솔길 게이지 바 -->
+            <div class="gauge-container">
+                <div class="gauge-track"></div>
+                <div class="gauge-fill" id="gauge-fill"></div>
+                <!-- 곰돌이 달리기 주자 (SVG 디자인) -->
+                <div class="bear-runner" id="bear-runner">
+                    <svg viewBox="0 0 100 100" width="100%" height="100%">
+                        <!-- 귀 -->
+                        <circle cx="25" cy="25" r="14" fill="#a0522d" />
+                        <circle cx="25" cy="25" r="7" fill="#fbd38d" />
+                        <circle cx="75" cy="25" r="14" fill="#a0522d" />
+                        <circle cx="75" cy="25" r="7" fill="#fbd38d" />
+                        <!-- 얼굴과 통통한 몸통 -->
+                        <circle cx="50" cy="55" r="32" fill="#a0522d" />
+                        <!-- 눈 -->
+                        <circle cx="38" cy="48" r="5" fill="#000" />
+                        <circle cx="62" cy="48" r="5" fill="#000" />
+                        <!-- 부끄러운 볼터치 -->
+                        <circle cx="30" cy="58" r="6" fill="#f88" opacity="0.75" />
+                        <circle cx="70" cy="58" r="6" fill="#f88" opacity="0.75" />
+                        <!-- 주둥이 -->
+                        <ellipse cx="50" cy="64" rx="16" ry="11" fill="#fffbeb" />
+                        <!-- 코 -->
+                        <polygon points="45,60 55,60 50,66" fill="#000" />
+                        <!-- 방긋 웃는 입 -->
+                        <path d="M 46,67 Q 50,71 54,67" stroke="#000" stroke-width="2" fill="none" />
+                    </svg>
+                </div>
+                <!-- 도착선 꿀단지 -->
+                <div class="honey-pot">🍯</div>
+            </div>
+            
+            <div class="question-box" id="question-text">
+                문제가 여기에 표시됩니다.
+            </div>
+
+            <div class="options-container" id="options-box">
+                <!-- 보기 카드가 들어갈 자리 -->
+            </div>
+
+            <!-- 정답/오답 실시간 피드백 창 -->
+            <div class="feedback-box" id="feedback-box">
+                <div class="title" id="feedback-title">정답입니다!</div>
+                <div id="feedback-desc">해설 내용</div>
+            </div>
+
+            <button class="btn-next" id="btn-next" onclick="nextQuestion()">다음 문제로 👉</button>
+        </div>
+
+        <!-- 2. 게임 끝 결과 화면 -->
+        <div id="result-screen" class="result-screen">
+            <div class="result-title" id="result-main-title">게임 종료! 🎉</div>
+            <div class="score-display" id="final-score">최종 점수: 0점 (10문제 중 0문제 완료)</div>
+            
+            <h3 style="text-align: left; margin-bottom: 10px; color: #744210; font-family: 'Gaegu', sans-serif; font-size: 24px;">📝 이번 판 오답 노트</h3>
+            <div class="review-note" id="review-note">
+                <!-- 틀렸던 문제 정보와 훈훈한 해설이 쌓임 -->
+            </div>
+
+            <button class="btn-restart" onclick="startGame()">다시 도전하기 🔄</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 더 풍성하고 알찬 20문제 대형 문제 은행 (매판 10개만 골라 신선하게 노출) ---
+        const problemBank = [
+            {
+                question: "하늘에 동그랗고 밝은 [달]이 떴습니다. 여기서 '달'은 어떤 뜻일까요?",
+                options: [
+                    "① 밤하늘에 밝게 빛나는, 지구 주위를 도는 친구 (자연 위성)",
+                    "② 달력에서 1월, 2월처럼 시간을 세는 단위",
+                    "③ 맛이 쓰지 않고 사탕처럼 달콤하다는 느낌"
+                ],
+                correctIndex: 0,
+                explanation: "밤하늘에 뜨는 예쁜 '달'은 지구 주위를 도는 위성이에요. 달력의 '한 달, 두 달'과는 모양과 소리는 같지만 완전 다른 뜻을 가지고 있어요!"
+            },
+            {
+                question: "올해는 벌써 12[달] 중에 마지막 달인 12월이구나. 여기서 '달'은 어떤 뜻일까요?",
+                options: [
+                    "① 밤하늘에 밝게 빛나는, 지구 주위를 도는 친구 (자연 위성)",
+                    "② 달력에서 1월, 2월처럼 시간을 세는 단위",
+                    "③ 맛이 쓰지 않고 사탕처럼 달콤하다는 느낌"
+                ],
+                correctIndex: 1,
+                explanation: "시간의 단위를 나타내는 '달'은 1년 중 한 달, 두 달 처럼 시간의 흐름을 표현하는 동음이의어랍니다."
+            },
+            {
+                question: "가을이 되어 과수원에 시원하고 달콤한 [배]가 많이 열렸습니다. 여기서 '배'는 무엇일까요?",
+                options: [
+                    "① 강이나 바다를 건너갈 때 타는 튼튼한 교통수단",
+                    "② 우리가 밥을 많이 먹으면 배부르다고 느끼는 몸의 소화기관",
+                    "③ 나무에서 동글동글 자라나는 달콤하고 아삭한 과일"
+                ],
+                correctIndex: 2,
+                explanation: "나무에 열려 맛있게 깎아 먹는 과일을 가리키는 '배'예요. 타는 배, 신체 배와 똑같은 글자이지만 뜻은 전혀 달라요!"
+            },
+            {
+                question: "바다 위에 커다란 [배]가 둥둥 떠다니며 손님들을 싣고 갑니다. 여기서 '배'는 무엇일까요?",
+                options: [
+                    "① 강이나 바다를 건너갈 때 타는 튼튼한 교통수단",
+                    "② 우리가 밥을 많이 먹으면 배부르다고 느끼는 몸의 소화기관",
+                    "③ 나무에서 동글동글 자라나는 달콤하고 아삭한 과일"
+                ],
+                correctIndex: 0,
+                explanation: "물 위를 안전하게 떠서 움직이는 훌륭한 교통수단인 '배'를 이야기하고 있어요."
+            },
+            {
+                question: "맛있는 과자를 과식했더니 [배]가 남산만 하게 가득 불러왔어요. 여기서 '배'는 무엇일까요?",
+                options: [
+                    "① 강이나 바다를 건너갈 때 타는 튼튼한 교통수단",
+                    "② 우리가 밥을 많이 먹으면 배부르다고 느끼는 몸의 소화기관",
+                    "③ 나무에서 동글동글 자라나는 달콤하고 아삭한 과일"
+                ],
+                correctIndex: 1,
+                explanation: "음식물이 들어가는 우리 소중한 신체 부위인 '배'를 뜻하는 단어입니다."
+            },
+            {
+                question: "스케치북에 종이를 붙이려면 끈적끈적한 [풀]이 꼭 필요해요. 여기서 '풀'은 무엇일까요?",
+                options: [
+                    "① 종이나 물건을 서로 꼭 달라붙게 만드는 도구",
+                    "② 마당이나 산에서 파랗게 자라는 아주 작은 식물",
+                    "③ 몸의 기운이 쏙 빠져서 얌전해진 모습"
+                ],
+                correctIndex: 0,
+                explanation: "미술 시간이나 공작 시간에 종이를 붙일 때 유용하게 쓰는 끈적끈적한 '풀'을 의미해요."
+            },
+            {
+                question: "들판에 파릇파릇하고 예쁜 초록색 [풀]이 가득 피어나고 있어요. 여기서 '풀'은 무엇일까요?",
+                options: [
+                    "① 종이나 물건을 서로 꼭 달라붙게 만드는 도구",
+                    "② 마당이나 산에서 파랗게 자라는 아주 작은 식물",
+                    "③ 몸의 기운이 쏙 빠져서 얌전해진 모습"
+                ],
+                correctIndex: 1,
+                explanation: "자연 속에서 파랗게 쏙쏙 돋아나는 들풀이나 풀잎 등 초록 식물을 지칭하고 있어요."
+            },
+            {
+                question: "우리가 신나게 뛰어놀 수 있는 것은 튼튼한 [다리] 덕분이에요. 여기서 '다리'는 무엇일까요?",
+                options: [
+                    "① 사람이나 동물이 서 있고 걸어갈 수 있게 해 주는 신체 부위",
+                    "② 강이나 도로 건너편으로 건너갈 수 있게 높이 만든 길",
+                    "③ 둥글고 노란 보름달의 또 다른 귀여운 이름"
+                ],
+                correctIndex: 0,
+                explanation: "몸을 든든하게 지탱하고 쌩쌩 달릴 수 있게 돕는 우리 몸의 소중한 '다리'입니다."
+            },
+            {
+                question: "강 건너로 가기 위해 한강 위에 지어진 멋진 [다리]를 건너갔어요. 여기서 '다리'는 무엇일까요?",
+                options: [
+                    "① 사람이나 동물이 서 있고 걸어갈 수 있게 해 주는 신체 부위",
+                    "② 강이나 도로 건너편으로 건너갈 수 있게 높이 만든 길",
+                    "③ 둥글고 노란 보름달의 또 다른 귀여운 이름"
+                ],
+                correctIndex: 1,
+                explanation: "사람이나 차가 넓은 강이나 장애물을 건너 반대편으로 지나갈 수 있게 세운 건축물 '다리(교량)'입니다."
+            },
+            {
+                question: "가시가 뾰족뾰족한 껍질 속에 노랗고 고소한 [밤]이 여물었어요. 여기서 '밤'은 무엇일까요?",
+                options: [
+                    "① 해가 지고 달이 떠서 깜깜해진 하루의 늦은 시간",
+                    "② 뾰족한 가시 송이 안에 들어있는 달콤하고 고소한 나무 열매",
+                    "③ 차가운 눈이 내려서 하얗게 변한 멋진 세상"
+                ],
+                correctIndex: 1,
+                explanation: "군밤이나 찐밤처럼 호호 불며 가을철 맛있게 먹는 갈색 견과류인 '밤'이에요."
+            },
+            {
+                question: "시계 바늘이 밤 10시를 가리켜 이제 코코 [밤]잠을 잘 시간이에요. 여기서 '밤'은 무엇일까요?",
+                options: [
+                    "① 해가 지고 달이 떠서 깜깜해진 하루의 늦은 시간",
+                    "② 뾰족한 가시 송이 안에 들어있는 달콤하고 고소한 나무 열매",
+                    "③ 차가운 눈이 내려서 하얗게 변한 멋진 세상"
+                ],
+                correctIndex: 0,
+                explanation: "하루 중 해가 꼴깍 져서 세상이 어둡고 아늑해진 휴식의 시간 '밤'을 의미합니다."
+            },
+            {
+                question: "겨울이 되자 하늘에서 하얗고 차가운 [눈]이 펑펑 내렸어요. 여기서 '눈'은 무엇일까요?",
+                options: [
+                    "① 아름다운 세상을 또렷하게 잘 볼 수 있는 우리 얼굴의 신체 부위",
+                    "② 추운 날씨에 구름 속에서 얼어붙어 땅으로 내리는 하얀 결정체",
+                    "③ 따뜻한 봄에 피어나는 향긋한 장미꽃 한 떨기"
+                ],
+                correctIndex: 1,
+                explanation: "추운 겨울에 하늘에서 하얗게 내리는 시원하고 예쁜 '눈(Snow)'을 가리킵니다."
+            },
+            {
+                question: "친구의 얼굴을 보며 예쁘고 초롱초롱한 두 [눈]을 마주 보았어요. 여기서 '눈'은 무엇일까요?",
+                options: [
+                    "① 아름다운 세상을 또렷하게 잘 볼 수 있는 우리 얼굴의 신체 부위",
+                    "② 추운 날씨에 구름 속에서 얼어붙어 땅으로 내리는 하얀 결정체",
+                    "③ 따뜻한 봄에 피어나는 향긋한 장미꽃 한 떨기"
+                ],
+                correctIndex: 0,
+                explanation: "사물을 관찰하고 반짝반짝 빛나며 세상을 보게 하는 신체 부위 '눈(Eye)'입니다."
+            },
+            {
+                question: "카우보이가 발걸음이 무척 빠르고 멋진 [말]을 타고 달려갑니다. 여기서 '말'은 무엇일까요?",
+                options: [
+                    "① 생각이나 기분을 입 밖으로 내어 표현하는 약속된 소리",
+                    "② 힝힝 울면서 길고 튼튼한 다리로 시원하게 달리는 동물",
+                    "③ 김밥을 만들 때 밥 위에 김을 돌돌 감는 행동"
+                ],
+                correctIndex: 1,
+                explanation: "길쭉한 얼굴에 힘찬 발굽을 가지고 다그닥 다그닥 달리는 귀여운 포유동물 '말'을 뜻합니다."
+            },
+            {
+                question: "친구야 고마워! 따뜻하고 친절한 [말] 한마디가 참 기뻤어. 여기서 '말'은 무엇일까요?",
+                options: [
+                    "① 생각이나 기분을 입 밖으로 내어 표현하는 약속된 소리",
+                    "② 힝힝 울면서 길고 튼튼한 다리로 시원하게 달리는 동물",
+                    "③ 김밥을 만들 때 밥 위에 김을 돌돌 감는 행동"
+                ],
+                correctIndex: 0,
+                explanation: "사람이 생각과 속마음을 전달하기 위해 입을 움직여 말하는 의사소통 수단인 '말(언어)'입니다."
+            },
+            {
+                question: "아침 식사 때 할머니가 맛있고 고소하게 잘 구운 [김]에 밥을 싸 주셨어요. 여기서 '김'은 무엇일까요?",
+                options: [
+                    "① 바다 풀을 건조해서 고소하고 짭조름하게 만든 까만 반찬",
+                    "② 뜨거운 냄비나 물에서 하얗게 피어오르는 따뜻한 증기(연기)",
+                    "③ 밭에 무럭무럭 자라는 잡초를 손으로 모두 뽑아내는 일"
+                ],
+                correctIndex: 0,
+                explanation: "우리가 밥을 싸서 간장에 찍어 먹는 짭조름하고 바삭바삭한 해조류 반찬 '김'을 말해요."
+            },
+            {
+                question: "따끈따끈한 호빵이 다 익었는지 찜기 주변으로 하얀 [김]이 모락모락 올라와요. 여기서 '김'은 무엇일까요?",
+                options: [
+                    "① 바다 풀을 건조해서 고소하고 짭조름하게 만든 까만 반찬",
+                    "② 뜨거운 냄비나 물에서 하얗게 피어오르는 따뜻한 증기(연기)",
+                    "③ 밭에 무럭무럭 자라는 잡초를 손으로 모두 뽑아내는 일"
+                ],
+                correctIndex: 1,
+                explanation: "물이 펄펄 끓거나 뜨거울 때 기체 상태로 솟아오르는 수증기인 '김'을 이야기하고 있어요."
+            },
+            {
+                question: "차고지가 넓은 버스 정류장에 커다란 [차]들이 줄지어 주차되어 있습니다. 여기서 '차'는 무엇일까요?",
+                options: [
+                    "① 도로를 쌩쌩 달리며 이동할 수 있도록 만들어진 자동차",
+                    "② 향이 좋거나 몸에 좋은 식물을 끓여서 따뜻하게 마시는 음료",
+                    "③ 무언가를 힘차게 뒤집어 찰 때 쓰는 단어"
+                ],
+                correctIndex: 0,
+                explanation: "바퀴가 굴러가며 멀리 있는 길까지 우리를 빠르게 데려다주는 신나는 자동차를 뜻해요."
+            },
+            {
+                question: "추운 바람을 쐬고 들어오신 부모님께 은은하고 따뜻한 보리[차] 한 잔을 대접했어요. 여기서 '차'는 무엇일까요?",
+                options: [
+                    "① 도로를 쌩쌩 달리며 이동할 수 있도록 만들어진 자동차",
+                    "② 향이 좋거나 몸에 좋은 식물을 끓여서 따뜻하게 마시는 음료",
+                    "③ 무언가를 힘차게 뒤집어 찰 때 쓰는 단어"
+                ],
+                correctIndex: 1,
+                explanation: "식물의 잎이나 뿌리를 고온에 우려서 건강하고 부드럽게 마시는 따뜻한 건강 음료 '차(Tea)'입니다."
+            },
+            {
+                question: "알록달록 예쁜 장미 꽃밭 위로 노란 [벌]이 윙윙 소리를 내며 날아왔어요. 여기서 '벌'은 무엇일까요?",
+                options: [
+                    "① 규칙이나 약속을 지키지 않아서 반성하며 혼나는 행동",
+                    "② 날개와 침을 달고 윙윙 날아다니며 꿀을 수집하는 곤충",
+                    "③ 예쁘게 다려진 소매와 바지를 맞추어 부르는 옷의 세트"
+                ],
+                correctIndex: 1,
+                explanation: "꽃가루를 옮겨주고 맛있는 꿀을 부지런히 날라주는 작고 날개 달린 곤충 친구 '벌'을 말해요."
+            }
+        ];
+
+        // --- 게임 상태 실시간 관리 변수 ---
+        let currentQuestions = [];
+        let currentQuestionIdx = 0;
+        let hearts = 5;
+        let score = 0;
+        let combo = 0;
+        let incorrectNotes = [];
+        let isAnswered = false;
+
+        // --- 게임 리부팅 시작 함수 ---
+        function startGame() {
+            // 전체 20문제 은행에서 매번 완전히 새로운 10문제를 무작위 셔플해서 추출
+            currentQuestions = shuffleArray([...problemBank]).slice(0, 10);
+            
+            // 모든 파라미터 초기화
+            currentQuestionIdx = 0;
+            hearts = 5;
+            score = 0;
+            combo = 0;
+            incorrectNotes = [];
+            isAnswered = false;
+
+            // 게임 UI 정상 셋업
+            document.getElementById("result-screen").style.display = "none";
+            document.getElementById("game-screen").style.display = "block";
+            document.getElementById("btn-next").style.display = "none";
+            document.getElementById("feedback-box").style.display = "none";
+
+            updateGaugeAndBear(); // 곰돌이 위치를 맨 앞(0%)으로 리셋
+            showQuestion();
+        }
+
+        // 무작위로 배열을 뒤흔들어 섞는 피셔-예이츠 알고리즘
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // 남은 목숨 하트 개수 모니터링
+        function updateHearts() {
+            let heartStr = "";
+            for (let i = 0; i < 5; i++) {
+                if (i < hearts) {
+                    heartStr += "❤️";
+                } else {
+                    heartStr += "🖤"; // 이미 소진된 하트는 직관적인 검정 하트로 표현
+                }
+            }
+            document.getElementById("heart-display").innerText = heartStr;
+        }
+
+        // 🐻 곰돌이의 꿀단지 배달 전진 및 게이지 충전 업데이트 함수
+        function updateGaugeAndBear() {
+            // 오직 맞춘 점수(score)가 오를 때만 곰돌이가 달콤한 꿀단지(오른쪽)를 향해 전진합니다.
+            // 총 10문제를 다 맞추면 100% 지점(꿀단지 앞)에 완벽하게 도달합니다!
+            const progressPercent = (score / 10) * 100;
+            document.getElementById("gauge-fill").style.width = `${progressPercent}%`;
+            document.getElementById("bear-runner").style.left = `${progressPercent}%`;
+        }
+
+        // 문제 렌더링 함수
+        function showQuestion() {
+            isAnswered = false;
+            updateHearts();
+            document.getElementById("btn-next").style.display = "none";
+            document.getElementById("feedback-box").style.display = "none";
+
+            const currentQ = currentQuestions[currentQuestionIdx];
+            
+            document.getElementById("question-progress").innerText = `문제: ${currentQuestionIdx + 1} / 10`;
+            document.getElementById("question-text").innerText = currentQ.question;
+
+            const optionsBox = document.getElementById("options-box");
+            optionsBox.innerHTML = "";
+
+            currentQ.options.forEach((optStr, idx) => {
+                const btn = document.createElement("button");
+                btn.className = "btn-option";
+                btn.innerText = optStr;
+                btn.onclick = () => selectOption(idx, btn);
+                optionsBox.appendChild(btn);
+            });
+        }
+
+        // 보기 카드 클릭 핸들러
+        function selectOption(selectedIdx, clickedBtn) {
+            if (isAnswered) return;
+            isAnswered = true;
+
+            const currentQ = currentQuestions[currentQuestionIdx];
+            const optionsBox = document.getElementById("options-box");
+            const allButtons = optionsBox.getElementsByTagName("button");
+            const feedbackBox = document.getElementById("feedback-box");
+            const feedbackTitle = document.getElementById("feedback-title");
+            const feedbackDesc = document.getElementById("feedback-desc");
+
+            if (selectedIdx === currentQ.correctIndex) {
+                // [정답을 정확히 고른 경우]
+                clickedBtn.classList.add("option-correct");
+                score++; // 점수 증가!
+                combo++; // 정답 연속 콤보 카운터 업
+                
+                feedbackBox.className = "feedback-box correct";
+                feedbackTitle.innerText = `🎉 정답입니다! (${combo}연속 정답 성공!)`;
+                feedbackDesc.innerText = currentQ.explanation;
+                
+                // 정답 점수가 올랐으므로 즉시 게이지 연출 및 곰돌이의 즐거운 바운스 점프 재생
+                updateGaugeAndBear();
+                const bear = document.getElementById("bear-runner");
+                bear.classList.add("bounce");
+                setTimeout(() => bear.classList.remove("bounce"), 600);
+
+                // 연속 정답 시 쾌적한 학습 환경을 위해 글자를 절대 덮지 않는 양쪽 구석 폭죽 연출
+                if (combo >= 1) {
+                    fireSideConfetti();
+                }
+
+            } else {
+                // [오답을 클릭한 경우]
+                clickedBtn.classList.add("option-wrong");
+                allButtons[currentQ.correctIndex].classList.add("option-correct");
+                
+                hearts--; // 목숨 하트 소진
+                combo = 0; // 연속 콤보 기록 초기화
+                updateHearts();
+
+                feedbackBox.className = "feedback-box wrong";
+                feedbackTitle.innerText = "😢 아쉽게도 오답이에요..";
+                feedbackDesc.innerText = currentQ.explanation;
+
+                // 나중 최종 화면에 모아서 표시할 오답노트 저장소에 저장
+                incorrectNotes.push({
+                    question: currentQ.question,
+                    yourAnswer: currentQ.options[selectedIdx],
+                    correctAnswer: currentQ.options[currentQ.correctIndex],
+                    explanation: currentQ.explanation
+                });
+            }
+
+            // 중복 클릭을 원천 차단하기 위해 모든 카드 동결
+            for (let btn of allButtons) {
+                btn.disabled = true;
+                btn.style.cursor = "default";
+            }
+
+            // 피드백 패널 및 다음 전진 단추 활성화
+            feedbackBox.style.display = "block";
+            document.getElementById("btn-next").style.display = "block";
+
+            if (hearts <= 0) {
+                document.getElementById("btn-next").innerText = "결과 보러 가기 🏁";
+            } else if (currentQuestionIdx === 9) {
+                document.getElementById("btn-next").innerText = "최종 결과 보기 🏁";
+            } else {
+                document.getElementById("btn-next").innerText = "다음 문제로 👉";
+            }
+        }
+
+        // 다음 단계 이동 제어
+        function nextQuestion() {
+            if (hearts <= 0 || currentQuestionIdx >= 9) {
+                showResult();
+                return;
+            }
+
+            currentQuestionIdx++;
+            showQuestion();
+        }
+
+        // 💥 글자를 가리지 않도록 화면 맨 아래 구석에서만 대각선으로 터지는 얌전한 특수 폭죽 효과
+        function fireSideConfetti() {
+            const count = 15;
+            const defaults = { origin: { y: 0.85 }, spread: 35, ticks: 120, zIndex: 1 };
+
+            // 왼쪽 모퉁이 폭포수
+            confetti({ ...defaults, particleCount: count, angle: 60, origin: { x: 0.04, y: 0.88 } });
+            // 오른쪽 모퉁이 폭포수
+            confetti({ ...defaults, particleCount: count, angle: 120, origin: { x: 0.96, y: 0.88 } });
+        }
+
+        // 🏁 최종 결과 보드 생성
+        function showResult() {
+            document.getElementById("game-screen").style.display = "none";
+            const resultScreen = document.getElementById("result-screen");
+            resultScreen.style.display = "block";
+
+            const resultMainTitle = document.getElementById("result-main-title");
+            const finalScoreText = document.getElementById("final-score");
+            const reviewNoteBox = document.getElementById("review-note");
+
+            const finalScoreVal = score * 10;
+
+            if (hearts <= 0) {
+                // 게임 중도 실패 오버
+                resultMainTitle.innerText = "하트를 모두 잃었어요 😭";
+                resultMainTitle.style.color = "#e53e3e";
+                finalScoreText.innerText = `최종 점수: ${finalScoreVal}점 (${currentQuestionIdx + 1}번째 문제 풀던 중 종료됨)`;
+            } else {
+                // 완주 클리어 성공
+                resultMainTitle.innerText = "축하합니다! 끝까지 완주했어요 🎉";
+                resultMainTitle.style.color = "#38a169";
+                finalScoreText.innerText = `최종 점수: ${finalScoreVal}점 (10문제 중 ${score}문제 정답!)`;
+                
+                // 만점을 달성하거나 훌륭한 성적일 때만 넓게 퍼지는 축하 폭죽 가동
+                if (score >= 8) {
+                    confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+                }
+            }
+
+            // 오답노트 콘텐츠 동적 조립
+            reviewNoteBox.innerHTML = "";
+            if (incorrectNotes.length === 0) {
+                reviewNoteBox.innerHTML = "<p style='text-align:center; color:#48bb78; font-weight:bold; font-size:18px;'>우와! 틀린 문제가 단 하나도 없어요! 아주 대단해요! 완벽합니다 👍</p>";
+            } else {
+                incorrectNotes.forEach((note, index) => {
+                    const item = document.createElement("div");
+                    item.className = "review-item";
+                    
+                    item.innerHTML = `
+                        <div class="review-q">질문${index + 1}. ${note.question}</div>
+                        <div class="review-a">❌ 내가 선택한 오답: ${note.yourAnswer} <br> 👉 올바른 정답: ${note.correctAnswer}</div>
+                        <div class="review-e">💡 <strong>해설 도우미:</strong> ${note.explanation}</div>
+                    `;
+                    reviewNoteBox.appendChild(item);
+                });
+            }
+        }
+
+        // 초기 시작
+        window.onload = startGame;
+    </script>
+</body>
+</html>
